@@ -815,12 +815,12 @@ model-viewer {
   border-radius: var(--radius-md);
   color: white;
   font-size: 0.9rem;
-  z-index: 10;
-  transition: opacity 0.3s ease;
+  z-index: 35;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  pointer-events: none;
 }
 
-.model-loading-bar.hide,
-[slot="progress-bar"].hide {
+.model-loading-bar.hide {
   display: none !important;
   opacity: 0 !important;
   pointer-events: none !important;

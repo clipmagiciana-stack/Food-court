@@ -219,11 +219,13 @@
           auto-rotate 
           rotation-per-second="20deg"
           loading="eager">
-          <div slot="progress-bar" id="modelProgressBar" class="model-loading-bar">
-            <div class="loading-spinner"></div>
-            <span data-i18n="loading_3d">Loading 3D Dish...</span>
-          </div>
         </model-viewer>
+
+        <!-- STANDALONE OVERLAY SPINNER (GUARANTEED TO HIDE) -->
+        <div id="modelProgressBar" class="model-loading-bar">
+          <div class="loading-spinner"></div>
+          <span data-i18n="loading_3d">Loading 3D Dish...</span>
+        </div>
       </div>
 
       <!-- SLIDE-UP BOTTOM SHEET FOR NUTRITIONAL INFO (Screen 6) -->

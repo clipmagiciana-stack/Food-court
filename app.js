@@ -662,7 +662,73 @@ class AppEngine {
 
     this.initDOM();
     this.bindEvents();
+    this.initHistory();
     this.render();
+  }
+
+  // --- HISTORY & MOBILE NAVIGATION ENGINE ---
+  initHistory() {
+    // Initial state setup so browser history is clean
+    try {
+      history.replaceState({ modal: 'home' }, '', window.location.pathname + window.location.search);
+    } catch(e) {}
+
+    window.addEventListener('popstate', (e) => {
+      this.handlePopState(e.state);
+    });
+  }
+
+  pushState(modalName) {
+    try {
+      history.pushState({ modal: modalName }, '', '#' + modalName);
+    } catch(e) {
+      window.location.hash = modalName;
+    }
+  }
+
+  popOrCloseModal() {
+    if (window.location.hash || (history.state && history.state.modal !== 'home')) {
+      history.back();
+    } else {
+      this.closeAllModalsAndViews();
+    }
+  }
+
+  handlePopState(state) {
+    // 1. Collapse 3D bottom sheet if expanded
+    if (this.arBottomSheet && this.arBottomSheet.classList.contains('expanded')) {
+      this.arBottomSheet.classList.remove('expanded');
+      this.arBottomSheet.classList.add('collapsed');
+      return;
+    }
+
+    // 2. If navigated back to home or state is null / home or no hash:
+    if (!state || state.modal === 'home' || !window.location.hash) {
+      this.closeAllModalsAndViews();
+    }
+  }
+
+  closeAllModalsAndViews() {
+    if (this.langModal) this.langModal.classList.add('hidden');
+    if (this.itemDetailModal) this.itemDetailModal.classList.add('hidden');
+    if (this.basketModal) this.basketModal.classList.add('hidden');
+    
+    if (this.arViewPage && this.arViewPage.classList.contains('active')) {
+      this.close3dViewInternal();
+    }
+
+    if (window.location.hash && window.location.hash !== '#') {
+      try {
+        history.replaceState({ modal: 'home' }, '', window.location.pathname + window.location.search);
+      } catch(e) {}
+    }
+  }
+
+  close3dViewInternal() {
+    this.arViewPage.classList.remove('active');
+    this.arViewPage.classList.add('hidden');
+    this.homePage.classList.add('active');
+    this.selectedDishFor3D = null;
   }
 
   initDOM() {
@@ -735,14 +801,17 @@ class AppEngine {
 
   bindEvents() {
     // Language Switcher Toggle
-    this.langBtn.addEventListener('click', () => this.showModal(this.langModal));
-    this.closeLangModal.addEventListener('click', () => this.hideModal(this.langModal));
+    this.langBtn.addEventListener('click', () => {
+      this.pushState('language');
+      this.showModal(this.langModal);
+    });
+    this.closeLangModal.addEventListener('click', () => this.popOrCloseModal());
 
     document.querySelectorAll('.lang-option-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const lang = e.currentTarget.getAttribute('data-lang');
         this.setLanguage(lang);
-        this.hideModal(this.langModal);
+        this.popOrCloseModal();
       });
     });
 
@@ -771,41 +840,46 @@ class AppEngine {
       if (this.selectedDishForModal) {
         const qty = parseInt(this.modalQtyVal.textContent, 10);
         this.addToBasket(this.selectedDishForModal.id, qty);
-        this.hideModal(this.itemDetailModal);
+        this.popOrCloseModal();
       }
     });
 
-    this.closeItemModal.addEventListener('click', () => this.hideModal(this.itemDetailModal));
+    this.closeItemModal.addEventListener('click', () => this.popOrCloseModal());
 
     // Basket Drawer Controls
     this.basketBtn.addEventListener('click', () => this.openBasket());
     this.floatingBillBtn.addEventListener('click', () => this.openBasket());
-    this.closeBasketModal.addEventListener('click', () => this.hideModal(this.basketModal));
+    this.closeBasketModal.addEventListener('click', () => this.popOrCloseModal());
     this.clearBasketBtn.addEventListener('click', () => this.clearBasket());
 
     this.placeOrderBtn.addEventListener('click', () => {
       if (this.basket.length === 0) return;
       this.showToast(TRANSLATIONS[this.activeLang].order_success, '🎉');
       this.clearBasket();
-      this.hideModal(this.basketModal);
+      this.popOrCloseModal();
     });
 
     // 3D View Screen Controls
-    this.closeArBtn.addEventListener('click', () => this.close3dView());
+    this.closeArBtn.addEventListener('click', () => this.popOrCloseModal());
     
-    // Model Viewer loading complete & error listeners to hide spinner
-    if (this.dish3dViewer) {
-      this.dish3dViewer.addEventListener('load', () => {
-        if (this.modelProgressBar) {
-          this.modelProgressBar.classList.add('hide');
-          this.modelProgressBar.style.display = 'none';
-        }
-      });
+    // Fail-proof Spinner Hiding Helper
+    this.hideSpinner = () => {
+      if (this.modelProgressBar) {
+        this.modelProgressBar.classList.add('hide');
+        this.modelProgressBar.style.opacity = '0';
+        setTimeout(() => {
+          if (this.modelProgressBar) this.modelProgressBar.style.display = 'none';
+        }, 200);
+      }
+    };
 
-      this.dish3dViewer.addEventListener('error', () => {
-        if (this.modelProgressBar) {
-          this.modelProgressBar.classList.add('hide');
-          this.modelProgressBar.style.display = 'none';
+    if (this.dish3dViewer) {
+      this.dish3dViewer.addEventListener('load', this.hideSpinner);
+      this.dish3dViewer.addEventListener('poster-dismissed', this.hideSpinner);
+      this.dish3dViewer.addEventListener('error', this.hideSpinner);
+      this.dish3dViewer.addEventListener('progress', (e) => {
+        if (e.detail && e.detail.totalProgress >= 0.95) {
+          this.hideSpinner();
         }
       });
     }
@@ -857,7 +931,7 @@ class AppEngine {
     // Backdrop click handlers to close modals
     [this.langModal, this.itemDetailModal, this.basketModal].forEach(modal => {
       modal.addEventListener('click', (e) => {
-        if (e.target === modal) this.hideModal(modal);
+        if (e.target === modal) this.popOrCloseModal();
       });
     });
   }
@@ -966,22 +1040,33 @@ class AppEngine {
     this.modalDishPrice.textContent = `Rs. ${dish.price}`;
     this.modalQtyVal.textContent = '1';
 
+    this.pushState('item');
     this.showModal(this.itemDetailModal);
   }
 
   // --- 3D & AR VIEW SCREEN (Screens 5 & 6) ---
   open3dView(dish) {
     this.selectedDishFor3D = dish;
+    this.pushState('3dview');
     
     // Reset loader progress bar visibility for new model load
     if (this.modelProgressBar) {
       this.modelProgressBar.classList.remove('hide');
+      this.modelProgressBar.style.opacity = '1';
       this.modelProgressBar.style.display = 'flex';
     }
 
     // Set 3D GLB src
     this.dish3dViewer.setAttribute('src', dish.model);
     
+    // 100% Fail-Safe Timer: Hide spinner after max 1.5s under all circumstances
+    if (this.spinnerTimeout) clearTimeout(this.spinnerTimeout);
+    this.spinnerTimeout = setTimeout(() => {
+      if (typeof this.hideSpinner === 'function') {
+        this.hideSpinner();
+      }
+    }, 1500);
+
     // Update bottom sheet content
     this.update3dSheetData(dish);
 
@@ -1018,10 +1103,7 @@ class AppEngine {
   }
 
   close3dView() {
-    this.arViewPage.classList.remove('active');
-    this.arViewPage.classList.add('hidden');
-    this.homePage.classList.add('active');
-    this.selectedDishFor3D = null;
+    this.popOrCloseModal();
   }
 
   // --- BASKET ENGINE (Screen 3) ---
@@ -1060,6 +1142,7 @@ class AppEngine {
 
   openBasket() {
     this.renderBasketItems();
+    this.pushState('basket');
     this.showModal(this.basketModal);
   }
 
