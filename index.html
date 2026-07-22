@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FOOD COURT - AR Interactive Menu</title>
+  <meta name="description" content="Experience FOOD COURT's authentic Mauritian cuisine in 3D and Augmented Reality. Scroll through menu categories, view dishes on your table in AR, and order directly.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Model Viewer for 3D & WebXR AR -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- APP CONTAINER / MOBILE FRAME -->
+  <div id="app" class="app-viewport">
+
+    <!-- MAIN HOME MENU PAGE -->
+    <main id="homePage" class="page active">
+      
+      <!-- TOP HEADER -->
+      <header class="app-header">
+        <div class="brand-badge">
+          <!-- Restaurant Name MUST NOT CHANGE -->
+          <h1 class="brand-title">FOOD COURT</h1>
+        </div>
+        <div class="header-actions">
+          <!-- Language Toggle Icon Button -->
+          <button id="langBtn" class="icon-btn" aria-label="Select Language" title="Select Language">
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            <span id="activeLangCode" class="lang-code-badge">EN</span>
+          </button>
+          
+          <!-- Basket Toggle Icon Button -->
+          <button id="basketBtn" class="icon-btn" aria-label="Shopping Cart" title="Shopping Cart">
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            <span id="basketCountBadge" class="badge">0</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- CATEGORIES BAR (HORIZONTAL SCROLLABLE) -->
+      <nav class="categories-wrapper" aria-label="Menu Categories">
+        <div class="categories-scroller" id="categoriesNav">
+          <button class="category-tab active" data-category="starters">
+            <span data-i18n="cat_starters">Starters</span>
+          </button>
+          <button class="category-tab" data-category="main">
+            <span data-i18n="cat_main">Main Course</span>
+          </button>
+          <button class="category-tab" data-category="desserts">
+            <span data-i18n="cat_desserts">Desserts</span>
+          </button>
+          <button class="category-tab" data-category="drinks">
+            <span data-i18n="cat_drinks">Drinks</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- DISHES LIST CONTAINER -->
+      <section class="dishes-section">
+        <div id="dishesList" class="dishes-list">
+          <!-- Dynamically populated dish cards -->
+        </div>
+      </section>
+
+      <!-- FLOATING BOTTOM BILL BAR -->
+      <div id="floatingBillBar" class="floating-bill-bar hidden">
+        <button id="floatingBillBtn" class="bill-btn">
+          <div class="bill-btn-content">
+            <span class="bill-icon">🛍️</span>
+            <span data-i18n="view_items">View Items</span>
+            <span id="floatingBillCount" class="bill-count-pill">0</span>
+          </div>
+          <div id="floatingBillTotal" class="bill-btn-price">Rs. 0</div>
+        </button>
+      </div>
+
+    </main>
+
+
+    <!-- LANGUAGE SELECTION SCREEN / MODAL -->
+    <div id="langModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-card lang-card">
+        <button id="closeLangModal" class="close-btn" aria-label="Close">✕</button>
+        
+        <div class="lang-header">
+          <div class="globe-icon-ring">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="globe-svg">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            <span class="speech-bubble">A</span>
+            <span class="speech-bubble left">文</span>
+          </div>
+          <h2 data-i18n="choose_language">Choose Language</h2>
+        </div>
+
+        <div class="lang-options-list">
+          <button class="lang-option-btn" data-lang="fr">
+            <span>Français (French)</span>
+            <span class="check-icon">✓</span>
+          </button>
+          <button class="lang-option-btn active" data-lang="en">
+            <span>English</span>
+            <span class="check-icon">✓</span>
+          </button>
+          <button class="lang-option-btn" data-lang="de">
+            <span>Deutsch (German)</span>
+            <span class="check-icon">✓</span>
+          </button>
+          <button class="lang-option-btn" data-lang="zh">
+            <span>中文 (Chinese)</span>
+            <span class="check-icon">✓</span>
+          </button>
+          <button class="lang-option-btn" data-lang="hi">
+            <span>हिंदी (Hindi)</span>
+            <span class="check-icon">✓</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ITEM DETAILS POPUP MODAL (Screen 4) -->
+    <div id="itemDetailModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-card item-card">
+        <button id="closeItemModal" class="close-btn" aria-label="Close">✕</button>
+        
+        <div class="item-modal-image-box">
+          <img id="modalDishImg" src="" alt="Dish Preview" class="modal-dish-img">
+        </div>
+
+        <div class="item-modal-body">
+          <h2 id="modalDishTitle" class="item-modal-title">Dish Name</h2>
+          <div id="modalDishSubtitle" class="item-modal-subtitle">Dish English Name</div>
+          <div id="modalDishPrice" class="item-modal-price">Rs. 0</div>
+
+          <div class="quantity-controller">
+            <button id="modalQtyMinus" class="qty-btn">-</button>
+            <span id="modalQtyVal" class="qty-val">1</span>
+            <button id="modalQtyPlus" class="qty-btn">+</button>
+          </div>
+
+          <button id="modalAddToCartBtn" class="primary-btn add-to-cart-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            <span data-i18n="add_to_items">Add to Items</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- 3D & AR VIEW SCREEN (Screens 5 & 6) -->
+    <section id="arViewPage" class="page ar-page hidden">
+      <!-- 3D View Top Header Bar -->
+      <div class="ar-header">
+        <button id="closeArBtn" class="ar-icon-btn back-btn" aria-label="Back to menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
+
+        <button id="arLaunchBtn" class="ar-cube-btn" aria-label="View in your space (AR)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cube-icon">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          <span data-i18n="view_in_space">View in your space</span>
+        </button>
+      </div>
+
+      <!-- Drag to rotate overlay cue -->
+      <div class="ar-gesture-cue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hand-swipe-icon">
+          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
+          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+          <path d="M18 8a2 2 0 0 1 2 2v4a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.83l1.17 1.17V11a2 2 0 0 1 2-2v0a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span data-i18n="drag_to_rotate">Drag to rotate</span>
+      </div>
+
+      <!-- MODEL VIEWER CONTAINER -->
+      <div class="model-viewer-box">
+        <model-viewer 
+          id="dish3dViewer" 
+          src="" 
+          alt="3D Dish Model" 
+          ar 
+          ar-modes="webxr scene-viewer quick-look" 
+          camera-controls 
+          touch-action="pan-y" 
+          shadow-intensity="1.5" 
+          environment-image="neutral" 
+          exposure="1" 
+          auto-rotate 
+          rotation-per-second="20deg"
+          loading="lazy">
+          <div slot="progress-bar" class="model-loading-bar">
+            <div class="loading-spinner"></div>
+            <span data-i18n="loading_3d">Loading 3D Dish...</span>
+          </div>
+        </model-viewer>
+      </div>
+
+      <!-- SLIDE-UP BOTTOM SHEET FOR NUTRITIONAL INFO (Screen 6) -->
+      <div id="arBottomSheet" class="ar-bottom-sheet collapsed">
+        <!-- Drag Handle Header -->
+        <div id="arSheetHandle" class="sheet-handle-bar">
+          <div class="handle-pill"></div>
+        </div>
+
+        <!-- Sheet Header Info -->
+        <div class="sheet-header">
+          <div class="sheet-title-box">
+            <h2 id="arDishTitle" class="sheet-title">Poudine Maïs</h2>
+            <div id="arDishSubtitle" class="sheet-subtitle">(Corn Pudding)</div>
+            <div id="arDishPrice" class="sheet-price">Rs. 250</div>
+          </div>
+          <button id="arSheetAddCartBtn" class="sheet-quick-add-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            <span data-i18n="add_to_items">Add to Items</span>
+          </button>
+        </div>
+
+        <!-- Sheet Scrollable Expand Content -->
+        <div class="sheet-content">
+          <!-- Description -->
+          <div class="info-group">
+            <h3 class="info-heading" data-i18n="description">Description</h3>
+            <p id="arDishDesc" class="info-text">
+              A traditional Mauritian dessert made from sweet corn, milk, sugar and a hint of vanilla, topped with desiccated coconut. Soft, moist and full of nostalgic flavor.
+            </p>
+          </div>
+
+          <!-- Nutritional Table -->
+          <div class="info-group">
+            <h3 class="info-heading">
+              <span data-i18n="nutrition_info">Nutritional Information</span>
+              <span class="sub-heading">(Per 100g)</span>
+            </h3>
+            <div class="nutrition-grid">
+              <div class="nutrition-item">
+                <span class="nutri-label" data-i18n="calories">Calories</span>
+                <span id="nutriCalories" class="nutri-value">245 kcal</span>
+              </div>
+              <div class="nutrition-item">
+                <span class="nutri-label" data-i18n="carbs">Carbohydrates</span>
+                <span id="nutriCarbs" class="nutri-value">32 g</span>
+              </div>
+              <div class="nutrition-item">
+                <span class="nutri-label" data-i18n="sugars">Sugars</span>
+                <span id="nutriSugars" class="nutri-value">18 g</span>
+              </div>
+              <div class="nutrition-item">
+                <span class="nutri-label" data-i18n="protein">Protein</span>
+                <span id="nutriProtein" class="nutri-value">4 g</span>
+              </div>
+              <div class="nutrition-item">
+                <span class="nutri-label" data-i18n="fat">Fat</span>
+                <span id="nutriFat" class="nutri-value">10 g</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dietary Badges -->
+          <div class="info-group">
+            <h3 class="info-heading" data-i18n="dietary_info">Dietary Info & Ingredients</h3>
+            <div id="dietaryBadges" class="dietary-badges-row">
+              <div class="dietary-badge">
+                <span class="badge-icon">🌾</span>
+                <span class="badge-text">Gluten Free</span>
+              </div>
+              <div class="dietary-badge">
+                <span class="badge-icon">🥛</span>
+                <span class="badge-text">Contains Milk</span>
+              </div>
+              <div class="dietary-badge">
+                <span class="badge-icon">🌱</span>
+                <span class="badge-text">Vegetarian</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sheet-hint-bar">
+            <span data-i18n="slide_hint">Slide down to view full 3D model</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- BASKET & BILL SUMMARY SIDE-DRAWER / MODAL (Screen 3) -->
+    <div id="basketModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-card basket-card">
+        <!-- Basket Header -->
+        <div class="basket-header">
+          <button id="closeBasketModal" class="basket-back-btn" aria-label="Back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+          </button>
+          <h2 data-i18n="your_items">Your Items</h2>
+          <button id="clearBasketBtn" class="icon-btn danger-icon" title="Clear Basket">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Basket Scroll Items -->
+        <div id="basketItemsList" class="basket-items-list">
+          <!-- Dynamic cart items -->
+        </div>
+
+        <!-- Bill Breakdown Box -->
+        <div class="bill-summary-box">
+          <h3 class="bill-heading" data-i18n="bill_summary">Bill Summary</h3>
+          <div class="bill-line">
+            <span data-i18n="subtotal">Subtotal</span>
+            <span id="billSubtotal">Rs. 0</span>
+          </div>
+          <div class="bill-line">
+            <span data-i18n="taxes_charges">Taxes & Charges</span>
+            <span>Rs. 0</span>
+          </div>
+          <div class="bill-divider"></div>
+          <div class="bill-line total-line">
+            <span data-i18n="total_amount">Total Amount</span>
+            <span id="billTotalAmount">Rs. 0</span>
+          </div>
+
+          <button id="placeOrderBtn" class="primary-btn place-order-btn">
+            <span data-i18n="continue_ordering">Place Order / Call Waiter</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- SUCCESS TOAST NOTIFICATION -->
+    <div id="toast" class="toast hidden">
+      <span id="toastIcon">✨</span>
+      <span id="toastMsg">Item added to basket</span>
+    </div>
+
+  </div>
+
+  <!-- JavaScript Code -->
+  <script src="app.js"></script>
+</body>
+</html>
