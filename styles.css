@@ -810,11 +810,21 @@ model-viewer {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  background-color: rgba(15, 76, 92, 0.9);
+  background-color: rgba(15, 76, 92, 0.92);
   padding: 16px 24px;
   border-radius: var(--radius-md);
   color: white;
   font-size: 0.9rem;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.model-loading-bar.hide,
+[slot="progress-bar"].hide {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 .loading-spinner {

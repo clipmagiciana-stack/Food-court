@@ -707,6 +707,7 @@ class AppEngine {
 
     // 3D Viewer & Bottom Sheet Elements
     this.dish3dViewer = document.getElementById('dish3dViewer');
+    this.modelProgressBar = document.getElementById('modelProgressBar');
     this.arBottomSheet = document.getElementById('arBottomSheet');
     this.arSheetHandle = document.getElementById('arSheetHandle');
     this.arDishTitle = document.getElementById('arDishTitle');
@@ -792,6 +793,23 @@ class AppEngine {
     // 3D View Screen Controls
     this.closeArBtn.addEventListener('click', () => this.close3dView());
     
+    // Model Viewer loading complete & error listeners to hide spinner
+    if (this.dish3dViewer) {
+      this.dish3dViewer.addEventListener('load', () => {
+        if (this.modelProgressBar) {
+          this.modelProgressBar.classList.add('hide');
+          this.modelProgressBar.style.display = 'none';
+        }
+      });
+
+      this.dish3dViewer.addEventListener('error', () => {
+        if (this.modelProgressBar) {
+          this.modelProgressBar.classList.add('hide');
+          this.modelProgressBar.style.display = 'none';
+        }
+      });
+    }
+
     // Launch Native Camera AR
     this.arLaunchBtn.addEventListener('click', () => {
       if (this.dish3dViewer && typeof this.dish3dViewer.activateAR === 'function') {
@@ -955,6 +973,12 @@ class AppEngine {
   open3dView(dish) {
     this.selectedDishFor3D = dish;
     
+    // Reset loader progress bar visibility for new model load
+    if (this.modelProgressBar) {
+      this.modelProgressBar.classList.remove('hide');
+      this.modelProgressBar.style.display = 'flex';
+    }
+
     // Set 3D GLB src
     this.dish3dViewer.setAttribute('src', dish.model);
     

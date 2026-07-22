@@ -218,8 +218,8 @@
           exposure="1" 
           auto-rotate 
           rotation-per-second="20deg"
-          loading="lazy">
-          <div slot="progress-bar" class="model-loading-bar">
+          loading="eager">
+          <div slot="progress-bar" id="modelProgressBar" class="model-loading-bar">
             <div class="loading-spinner"></div>
             <span data-i18n="loading_3d">Loading 3D Dish...</span>
           </div>
