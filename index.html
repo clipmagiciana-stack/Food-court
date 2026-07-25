@@ -22,58 +22,79 @@
   <!-- APP CONTAINER / MOBILE FRAME -->
   <div id="app" class="app-viewport">
 
+    <!-- SPLASH SCREEN OVERLAY (Yellow Theme with White Card) -->
+    <div id="splashScreen" class="splash-screen">
+      <div class="splash-content">
+        <div class="splash-restaurant-card">
+          <h1 class="splash-title">FOOD COURT</h1>
+          <p class="splash-subtitle">3D & AR Interactive Menu</p>
+        </div>
+      </div>
+    </div>
+
     <!-- MAIN HOME MENU PAGE -->
     <main id="homePage" class="page active">
       
       <!-- TOP HEADER -->
-      <header class="app-header">
-        <div class="brand-badge">
-          <!-- Restaurant Name MUST NOT CHANGE -->
-          <h1 class="brand-title">FOOD COURT</h1>
-        </div>
-        <div class="header-actions">
-          <!-- Language Toggle Icon Button -->
-          <button id="langBtn" class="icon-btn" aria-label="Select Language" title="Select Language">
-            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
-            <span id="activeLangCode" class="lang-code-badge">EN</span>
-          </button>
+      <header class="app-header blinkit-header">
+        <div class="header-top-row">
+          <div class="brand-badge">
+            <h1 class="brand-title">FOOD COURT</h1>
+          </div>
           
-          <!-- Basket Toggle Icon Button -->
-          <button id="basketBtn" class="icon-btn" aria-label="Shopping Cart" title="Shopping Cart">
-            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <path d="M16 10a4 4 0 0 1-8 0"></path>
-            </svg>
-            <span id="basketCountBadge" class="badge">0</span>
-          </button>
+          <div class="header-actions">
+            <!-- Language Toggle Icon Button -->
+            <button id="langBtn" class="icon-btn blinkit-icon-btn" aria-label="Select Language" title="Select Language">
+              <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+              <span id="activeLangCode" class="lang-code-badge">EN</span>
+            </button>
+            
+            <!-- Basket Toggle Icon Button -->
+            <button id="basketBtn" class="icon-btn blinkit-icon-btn" aria-label="Shopping Cart" title="Shopping Cart">
+              <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 0 1-8 0"></path>
+              </svg>
+              <span id="basketCountBadge" class="badge">0</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <!-- CATEGORIES BAR (HORIZONTAL SCROLLABLE) -->
+      <!-- CATEGORIES BAR WITH VISUAL TILES (HORIZONTAL SCROLLABLE & SWIPEABLE) -->
       <nav class="categories-wrapper" aria-label="Menu Categories">
         <div class="categories-scroller" id="categoriesNav">
           <button class="category-tab active" data-category="starters">
+            <span class="cat-emoji">🧆</span>
             <span data-i18n="cat_starters">Starters</span>
           </button>
           <button class="category-tab" data-category="main">
+            <span class="cat-emoji">🍲</span>
             <span data-i18n="cat_main">Main Course</span>
           </button>
           <button class="category-tab" data-category="desserts">
+            <span class="cat-emoji">🍰</span>
             <span data-i18n="cat_desserts">Desserts</span>
           </button>
           <button class="category-tab" data-category="drinks">
+            <span class="cat-emoji">🍹</span>
             <span data-i18n="cat_drinks">Drinks</span>
           </button>
         </div>
+        <div class="swipe-hint-bar">
+          <span class="swipe-arrow">←</span>
+          <span>Swipe left / right to change category</span>
+          <span class="swipe-arrow">→</span>
+        </div>
       </nav>
 
-      <!-- DISHES LIST CONTAINER -->
-      <section class="dishes-section">
+      <!-- DISHES LIST CONTAINER (SWIPE DRAG SUPPORTED) -->
+      <section class="dishes-section" id="dishesSection">
         <div id="dishesList" class="dishes-list">
           <!-- Dynamically populated dish cards -->
         </div>
@@ -81,10 +102,10 @@
 
       <!-- FLOATING BOTTOM BILL BAR -->
       <div id="floatingBillBar" class="floating-bill-bar hidden">
-        <button id="floatingBillBtn" class="bill-btn">
+        <button id="floatingBillBtn" class="bill-btn blinkit-bill-btn">
           <div class="bill-btn-content">
             <span class="bill-icon">🛍️</span>
-            <span data-i18n="view_items">View Items</span>
+            <span data-i18n="view_items">View Cart</span>
             <span id="floatingBillCount" class="bill-count-pill">0</span>
           </div>
           <div id="floatingBillTotal" class="bill-btn-price">Rs. 0</div>
@@ -212,12 +233,16 @@
           ar 
           ar-modes="webxr scene-viewer quick-look" 
           camera-controls 
+          camera-orbit="0deg 75deg 105%"
+          field-of-view="30deg"
+          bounds="tight"
           touch-action="pan-y" 
-          shadow-intensity="1.5" 
-          environment-image="neutral" 
-          exposure="1" 
+          shadow-intensity="1" 
+          shadow-softness="1"
+          exposure="1.2" 
+          tone-mapping="neutral"
           auto-rotate 
-          rotation-per-second="20deg"
+          rotation-per-second="18deg"
           loading="eager">
         </model-viewer>
 
@@ -361,8 +386,8 @@
             <span id="billTotalAmount">Rs. 0</span>
           </div>
 
-          <button id="placeOrderBtn" class="primary-btn place-order-btn">
-            <span data-i18n="continue_ordering">Place Order / Call Waiter</span>
+          <button id="closeBasketDoneBtn" class="primary-btn blinkit-primary-btn">
+            <span>Done / Back to Menu</span>
           </button>
         </div>
       </div>

@@ -3,18 +3,18 @@
    ========================================================================== */
 
 :root {
-  /* Color Palette */
-  --primary: #0F4C5C;
-  --primary-dark: #093440;
-  --primary-light: #1A6B80;
-  --accent: #E36414;
+  /* Original Premium Color Palette */
+  --primary: #0F4C5C;          /* Original Deep Teal */
+  --primary-dark: #093440;     /* Darker Teal */
+  --primary-light: #E6F2F5;    /* Light Teal Tint */
+  --accent: #E36414;           /* Warm Accent Orange */
   --accent-hover: #C5500B;
   --accent-light: #FFF0E6;
   --gold: #FB8B24;
   
-  --bg-main: #FAF7F2;
+  --bg-main: #FAF7F2;          /* Original Warm Background */
   --bg-card: #FFFFFF;
-  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass: rgba(255, 255, 255, 0.92);
   
   --text-main: #1C2D37;
   --text-muted: #5C6F7A;
@@ -23,18 +23,18 @@
   --border-light: #EBE6DF;
   --border-active: #0F4C5C;
   
-  --shadow-sm: 0 4px 12px rgba(15, 76, 92, 0.05);
-  --shadow-md: 0 8px 24px rgba(15, 76, 92, 0.10);
-  --shadow-lg: 0 16px 40px rgba(15, 76, 92, 0.18);
+  --shadow-sm: 0 2px 8px rgba(15, 76, 92, 0.06);
+  --shadow-md: 0 4px 16px rgba(15, 76, 92, 0.10);
+  --shadow-lg: 0 12px 32px rgba(15, 76, 92, 0.22);
   
   --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
   --radius-pill: 50px;
   
-  --font-family: 'Plus Jakarta Sans', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-  --transition-fast: 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-  --transition-smooth: 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  --font-family: 'Outfit', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --transition-fast: 0.18s cubic-bezier(0.25, 0.8, 0.25, 1);
+  --transition-smooth: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Reset & Base Rules */
@@ -57,7 +57,7 @@ body {
   min-height: 100vh;
 }
 
-/* App Viewport Container (Simulating Mobile Shell on Desktop, Native on Mobile) */
+/* App Viewport Container */
 .app-viewport {
   width: 100%;
   max-width: 480px;
@@ -66,7 +66,7 @@ body {
   background-color: var(--bg-main);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
 }
@@ -89,6 +89,62 @@ body {
     border-radius: 28px;
     border: 8px solid #1A2830;
   }
+}
+
+/* ==========================================================================
+   SPLASH SCREEN OVERLAY (Original Teal Theme with Crisp White Card)
+   ========================================================================== */
+.splash-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--primary);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  transform: scale(1.05);
+  pointer-events: none;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+}
+
+.splash-restaurant-card {
+  background-color: white;
+  padding: 26px 40px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.splash-title {
+  font-size: 2.1rem;
+  font-weight: 900;
+  color: var(--primary);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.splash-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 /* Page Views System */
@@ -115,155 +171,187 @@ body {
   z-index: 10;
 }
 
-/* App Top Header */
-.app-header {
-  height: 70px;
-  padding: 0 20px;
+/* ==========================================================================
+   TOP HEADER (Original Teal Brand Theme)
+   ========================================================================== */
+.blinkit-header {
+  background-color: var(--primary);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(15, 76, 92, 0.15);
+}
+
+.header-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: var(--bg-main);
-  border-bottom: 1px solid var(--border-light);
-  z-index: 20;
-  flex-shrink: 0;
+  width: 100%;
 }
 
 .brand-badge {
   display: flex;
   align-items: center;
-  gap: 10px;
 }
 
 .brand-title {
   font-family: 'Outfit', var(--font-family);
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: var(--primary);
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  color: white;
   text-transform: uppercase;
-  border: 2px solid var(--primary);
-  padding: 4px 16px;
+  border: 2px solid white;
+  padding: 4px 14px;
   border-radius: var(--radius-pill);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-direction: row;
+  gap: 10px;
 }
 
-.icon-btn {
+.blinkit-icon-btn {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  border: 1.5px solid var(--border-light);
-  background-color: var(--bg-card);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   position: relative;
-  transition: transform var(--transition-fast), background-color var(--transition-fast);
-  color: var(--primary);
-}
-
-.icon-btn:active {
-  transform: scale(0.92);
-}
-
-.header-icon {
-  width: 22px;
-  height: 22px;
-}
-
-.lang-code-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  background-color: var(--accent);
-  color: white;
-  font-size: 0.65rem;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 6px;
-}
-
-.badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background-color: var(--accent);
-  color: white;
-  font-size: 0.72rem;
-  font-weight: 700;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  border: 2px solid var(--bg-card);
-}
-
-/* Category Navigation Bar */
-.categories-wrapper {
-  padding: 14px 16px;
-  background-color: var(--bg-main);
+  cursor: pointer;
   flex-shrink: 0;
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+.blinkit-icon-btn:active {
+  transform: scale(0.92);
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.blinkit-icon-btn .header-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* ==========================================================================
+   CATEGORIES BAR (HORIZONTAL SCROLL & SWIPEABLE)
+   ========================================================================== */
+.categories-wrapper {
+  padding: 12px 16px 8px 16px;
+  background-color: white;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .categories-scroller {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   overflow-x: auto;
   scroll-behavior: smooth;
   padding-bottom: 4px;
-  scrollbar-width: none; /* Firefox */
+  scrollbar-width: none;
 }
 
 .categories-scroller::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  display: none;
 }
 
 .category-tab {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: var(--radius-pill);
   border: 1.5px solid var(--border-light);
-  background-color: var(--bg-card);
-  color: var(--text-muted);
-  font-size: 0.92rem;
-  font-weight: 600;
+  background-color: #F8FAF9;
+  color: var(--text-main);
+  font-size: 0.88rem;
+  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   transition: all var(--transition-fast);
 }
 
-.category-tab.active {
-  background-color: var(--primary);
-  color: white;
-  border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(15, 76, 92, 0.25);
+.cat-emoji {
+  font-size: 1.05rem;
 }
 
-/* Dishes Section & Cards Grid */
+.category-tab.active {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(12, 131, 31, 0.15);
+}
+
+.swipe-hint-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #888;
+  padding-top: 2px;
+}
+
+.swipe-arrow {
+  font-weight: 800;
+  color: var(--primary);
+}
+
+/* ==========================================================================
+   DISHES SECTION & BLINKIT SHARP PRODUCT CARDS
+   ========================================================================== */
 .dishes-section {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 16px 90px 16px;
+  padding: 12px 16px 90px 16px;
+  touch-action: pan-y pinch-zoom;
 }
 
 .dishes-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  transition: transform 0.25s ease-out, opacity 0.25s ease-out;
+}
+
+/* Slide animation classes for swipe switching */
+.slide-from-right {
+  animation: slideFromRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.slide-from-left {
+  animation: slideFromLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideFromRight {
+  from { opacity: 0.3; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideFromLeft {
+  from { opacity: 0.3; transform: translateX(-40px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .dish-card {
   background-color: var(--bg-card);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-light);
-  padding: 14px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -271,17 +359,16 @@ body {
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.dish-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+.dish-card:active {
+  transform: scale(0.99);
 }
 
-/* Dish Image Container - Tapping opens Photo Popup */
+/* Dish Image Box with Blinkit Badge */
 .dish-img-box {
-  width: 95px;
-  height: 95px;
+  width: 90px;
+  height: 90px;
   border-radius: var(--radius-sm);
-  background-color: #F4F1EA;
+  background-color: #F8FAF9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -289,31 +376,28 @@ body {
   cursor: pointer;
   flex-shrink: 0;
   overflow: hidden;
+  border: 1px solid var(--border-light);
 }
 
 .dish-img {
-  width: 90%;
-  height: 90%;
+  width: 88%;
+  height: 88%;
   object-fit: contain;
-  transition: transform var(--transition-fast);
-}
-
-.dish-img-box:active .dish-img {
-  transform: scale(1.08);
 }
 
 .tap-hint-badge {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  background-color: rgba(0, 0, 0, 0.4);
+  top: 4px;
+  left: 4px;
+  background-color: var(--primary);
   color: white;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
+  font-weight: 800;
   padding: 2px 5px;
   border-radius: 4px;
 }
 
-/* Dish Info Box - Tapping Title opens 3D AR Viewer */
+/* Dish Info Box */
 .dish-info-box {
   flex: 1;
   display: flex;
@@ -330,74 +414,77 @@ body {
 }
 
 .dish-title {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 800;
   color: var(--text-main);
   line-height: 1.25;
-  transition: color var(--transition-fast);
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.dish-title:hover {
-  color: var(--primary);
+  flex-wrap: wrap;
 }
 
 .ar-chip {
-  font-size: 0.68rem;
-  font-weight: 700;
-  background-color: var(--accent-light);
-  color: var(--accent);
+  font-size: 0.65rem;
+  font-weight: 800;
+  background-color: var(--primary-light);
+  color: var(--primary);
   padding: 2px 6px;
-  border-radius: 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(12, 131, 31, 0.2);
 }
 
 .dish-subtitle {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
+  font-weight: 500;
 }
 
 .dish-price-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .dish-price {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--primary-dark);
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--text-main);
 }
 
-/* Add to Cart Icon Button on Card */
-.card-add-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+/* BLINKIT SIGNATURE "+ ADD" BUTTON */
+.blinkit-add-btn {
+  padding: 6px 18px;
+  border-radius: var(--radius-sm);
   border: 1.5px solid var(--primary);
-  background-color: var(--bg-card);
+  background-color: white;
   color: var(--primary);
+  font-family: var(--font-family);
+  font-size: 0.85rem;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(12, 131, 31, 0.12);
+  transition: all var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  gap: 4px;
 }
 
-.card-add-btn:active {
+.blinkit-add-btn:active {
   background-color: var(--primary);
   color: white;
-  transform: scale(0.92);
+  transform: scale(0.94);
 }
 
-/* Floating Bottom Bill Bar */
+/* FLOATING BOTTOM BILL BAR */
 .floating-bill-bar {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  right: 20px;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
   z-index: 30;
   transition: transform var(--transition-smooth), opacity var(--transition-smooth);
 }
@@ -408,14 +495,14 @@ body {
   pointer-events: none;
 }
 
-.bill-btn {
+.blinkit-bill-btn {
   width: 100%;
-  height: 56px;
+  height: 52px;
   background-color: var(--primary);
   color: white;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   border: none;
-  padding: 0 20px;
+  padding: 0 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -425,7 +512,7 @@ body {
   transition: transform var(--transition-fast), background-color var(--transition-fast);
 }
 
-.bill-btn:active {
+.blinkit-bill-btn:active {
   transform: scale(0.98);
   background-color: var(--primary-dark);
 }

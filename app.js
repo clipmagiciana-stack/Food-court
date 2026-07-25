@@ -650,25 +650,51 @@ const DISHES_DATA = [
 class AppEngine {
   constructor() {
     this.activeLang = 'en';
+    this.categories = ['starters', 'main', 'desserts', 'drinks'];
     this.activeCategory = 'starters';
     this.basket = []; // [{ dishId, quantity }]
     this.selectedDishForModal = null;
     this.selectedDishFor3D = null;
     
+    // Horizontal Category Swipe Tracking
+    this.swipeStartX = 0;
+    this.swipeStartY = 0;
+    this.swipeEndX = 0;
+    this.swipeEndY = 0;
+    this.isSwiping = false;
+
     // Bottom Sheet Gesture State
     this.sheetStartY = 0;
     this.sheetCurrentY = 0;
     this.isDraggingSheet = false;
 
     this.initDOM();
+    this.initSplashScreen();
     this.bindEvents();
+    this.bindSwipeNavigation();
+    this.bindSleepWakeRecovery();
     this.initHistory();
     this.render();
   }
 
+  // --- OPENING SPLASH SCREEN ENGINE ---
+  initSplashScreen() {
+    this.splashScreen = document.getElementById('splashScreen');
+    if (!this.splashScreen) return;
+
+    // Smoothly fade out splash screen after 1.2s
+    setTimeout(() => {
+      if (this.splashScreen) {
+        this.splashScreen.classList.add('fade-out');
+        setTimeout(() => {
+          if (this.splashScreen) this.splashScreen.style.display = 'none';
+        }, 400);
+      }
+    }, 1200);
+  }
+
   // --- HISTORY & MOBILE NAVIGATION ENGINE ---
   initHistory() {
-    // Initial state setup so browser history is clean
     try {
       history.replaceState({ modal: 'home' }, '', window.location.pathname + window.location.search);
     } catch(e) {}
@@ -695,14 +721,12 @@ class AppEngine {
   }
 
   handlePopState(state) {
-    // 1. Collapse 3D bottom sheet if expanded
     if (this.arBottomSheet && this.arBottomSheet.classList.contains('expanded')) {
       this.arBottomSheet.classList.remove('expanded');
       this.arBottomSheet.classList.add('collapsed');
       return;
     }
 
-    // 2. If navigated back to home or state is null / home or no hash:
     if (!state || state.modal === 'home' || !window.location.hash) {
       this.closeAllModalsAndViews();
     }
@@ -751,8 +775,10 @@ class AppEngine {
     this.closeArBtn = document.getElementById('closeArBtn');
     this.arLaunchBtn = document.getElementById('arLaunchBtn');
     this.floatingBillBtn = document.getElementById('floatingBillBtn');
+    this.closeBasketDoneBtn = document.getElementById('closeBasketDoneBtn');
 
-    // Containers
+    // Containers & Inputs
+    this.dishesSection = document.getElementById('dishesSection');
     this.dishesList = document.getElementById('dishesList');
     this.categoriesNav = document.getElementById('categoriesNav');
     this.basketCountBadge = document.getElementById('basketCountBadge');
@@ -760,6 +786,7 @@ class AppEngine {
     this.floatingBillCount = document.getElementById('floatingBillCount');
     this.floatingBillTotal = document.getElementById('floatingBillTotal');
     this.activeLangCode = document.getElementById('activeLangCode');
+    this.searchInput = document.getElementById('searchInput');
 
     // Modal Item Controls
     this.modalDishImg = document.getElementById('modalDishImg');
@@ -792,11 +819,148 @@ class AppEngine {
     this.basketItemsList = document.getElementById('basketItemsList');
     this.billSubtotal = document.getElementById('billSubtotal');
     this.billTotalAmount = document.getElementById('billTotalAmount');
-    this.placeOrderBtn = document.getElementById('placeOrderBtn');
 
     // Toast
     this.toast = document.getElementById('toast');
     this.toastMsg = document.getElementById('toastMsg');
+  }
+
+  // --- HORIZONTAL SWIPE CATEGORY NAVIGATION ---
+  bindSwipeNavigation() {
+    if (!this.dishesSection) return;
+
+    // Touch Swipe Events for Mobile / Tablet
+    this.dishesSection.addEventListener('touchstart', (e) => {
+      this.swipeStartX = e.touches[0].clientX;
+      this.swipeStartY = e.touches[0].clientY;
+      this.isSwiping = true;
+    }, { passive: true });
+
+    this.dishesSection.addEventListener('touchmove', (e) => {
+      if (!this.isSwiping) return;
+      this.swipeEndX = e.touches[0].clientX;
+      this.swipeEndY = e.touches[0].clientY;
+    }, { passive: true });
+
+    this.dishesSection.addEventListener('touchend', () => {
+      if (!this.isSwiping) return;
+      this.isSwiping = false;
+      this.handleSwipeGesture();
+    });
+
+    // Mouse / Pointer Drag Support for Desktop Simulation
+    let isMouseDown = false;
+    this.dishesSection.addEventListener('mousedown', (e) => {
+      isMouseDown = true;
+      this.swipeStartX = e.clientX;
+      this.swipeStartY = e.clientY;
+    });
+
+    this.dishesSection.addEventListener('mousemove', (e) => {
+      if (!isMouseDown) return;
+      this.swipeEndX = e.clientX;
+      this.swipeEndY = e.clientY;
+    });
+
+    this.dishesSection.addEventListener('mouseup', () => {
+      if (isMouseDown) {
+        isMouseDown = false;
+        this.handleSwipeGesture();
+      }
+    });
+
+    this.dishesSection.addEventListener('mouseleave', () => {
+      isMouseDown = false;
+    });
+  }
+
+  handleSwipeGesture() {
+    const deltaX = this.swipeStartX - this.swipeEndX;
+    const deltaY = this.swipeStartY - this.swipeEndY;
+
+    // Ensure swipe was horizontal and not vertical scroll
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 45) {
+      const currentIndex = this.categories.indexOf(this.activeCategory);
+      if (deltaX > 0) {
+        // Swiped Left -> Move to Next Category
+        if (currentIndex < this.categories.length - 1) {
+          this.switchCategory(this.categories[currentIndex + 1], 'right');
+        }
+      } else {
+        // Swiped Right -> Move to Previous Category
+        if (currentIndex > 0) {
+          this.switchCategory(this.categories[currentIndex - 1], 'left');
+        }
+      }
+    }
+
+    // Reset swipe points
+    this.swipeStartX = 0;
+    this.swipeEndX = 0;
+    this.swipeStartY = 0;
+    this.swipeEndY = 0;
+  }
+
+  switchCategory(categoryName, animateDirection = 'right') {
+    this.activeCategory = categoryName;
+
+    // Update active tab styling & scroll tab into view
+    document.querySelectorAll('.category-tab').forEach(tab => {
+      const cat = tab.getAttribute('data-category');
+      if (cat === categoryName) {
+        tab.classList.add('active');
+        tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      } else {
+        tab.classList.remove('active');
+      }
+    });
+
+    // Apply slide animation class
+    if (this.dishesList) {
+      this.dishesList.classList.remove('slide-from-right', 'slide-from-left');
+      void this.dishesList.offsetWidth; // Trigger reflow
+      this.dishesList.classList.add(animateDirection === 'right' ? 'slide-from-right' : 'slide-from-left');
+    }
+
+    this.renderDishes();
+  }
+
+  // --- MOBILE SCREEN SLEEP / WAKE FREEZE FIX ---
+  bindSleepWakeRecovery() {
+    const handleWakeUp = () => {
+      // 1. Reset touch gesture flags
+      this.isSwiping = false;
+      this.isDraggingSheet = false;
+
+      // 2. Unstick body lock or backdrop overlay freeze
+      document.body.style.overflow = '';
+
+      // 3. Recover 3D model-viewer if WebGL context was lost during sleep
+      if (this.dish3dViewer) {
+        try {
+          if (typeof this.dish3dViewer.dismissPoster === 'function') {
+            this.dish3dViewer.dismissPoster();
+          }
+          // Force layout reflow tick
+          this.dish3dViewer.style.display = 'none';
+          void this.dish3dViewer.offsetHeight;
+          this.dish3dViewer.style.display = 'block';
+        } catch (err) {}
+      }
+
+      // 4. Force re-sync of UI
+      this.render();
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        handleWakeUp();
+      }
+    });
+
+    window.addEventListener('pageshow', handleWakeUp);
+    window.addEventListener('focus', handleWakeUp);
+    window.addEventListener('online', handleWakeUp);
   }
 
   bindEvents() {
@@ -818,12 +982,17 @@ class AppEngine {
     // Category Tabs Switching
     document.querySelectorAll('.category-tab').forEach(tab => {
       tab.addEventListener('click', (e) => {
-        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
-        e.currentTarget.classList.add('active');
-        this.activeCategory = e.currentTarget.getAttribute('data-category');
-        this.renderDishes();
+        const cat = e.currentTarget.getAttribute('data-category');
+        this.switchCategory(cat, 'right');
       });
     });
+
+    // Search Input Live Filter
+    if (this.searchInput) {
+      this.searchInput.addEventListener('input', () => {
+        this.renderDishes();
+      });
+    }
 
     // Item Detail Modal Quantity Controls
     this.modalQtyMinus.addEventListener('click', () => {
@@ -850,14 +1019,10 @@ class AppEngine {
     this.basketBtn.addEventListener('click', () => this.openBasket());
     this.floatingBillBtn.addEventListener('click', () => this.openBasket());
     this.closeBasketModal.addEventListener('click', () => this.popOrCloseModal());
+    if (this.closeBasketDoneBtn) {
+      this.closeBasketDoneBtn.addEventListener('click', () => this.popOrCloseModal());
+    }
     this.clearBasketBtn.addEventListener('click', () => this.clearBasket());
-
-    this.placeOrderBtn.addEventListener('click', () => {
-      if (this.basket.length === 0) return;
-      this.showToast(TRANSLATIONS[this.activeLang].order_success, '🎉');
-      this.clearBasket();
-      this.popOrCloseModal();
-    });
 
     // 3D View Screen Controls
     this.closeArBtn.addEventListener('click', () => this.popOrCloseModal());
@@ -940,7 +1105,6 @@ class AppEngine {
     this.activeLang = lang;
     this.activeLangCode.textContent = lang.toUpperCase();
 
-    // Update active check in modal
     document.querySelectorAll('.lang-option-btn').forEach(btn => {
       if (btn.getAttribute('data-lang') === lang) {
         btn.classList.add('active');
@@ -949,7 +1113,6 @@ class AppEngine {
       }
     });
 
-    // Re-render UI labels
     this.translateUI();
     this.renderDishes();
     if (this.selectedDishFor3D) {
@@ -975,8 +1138,29 @@ class AppEngine {
   }
 
   renderDishes() {
-    const filtered = DISHES_DATA.filter(d => d.category === this.activeCategory);
+    const query = (this.searchInput ? this.searchInput.value : '').toLowerCase().trim();
+    let filtered = DISHES_DATA.filter(d => d.category === this.activeCategory);
+
+    if (query) {
+      filtered = DISHES_DATA.filter(d => {
+        const langData = d.i18n[this.activeLang] || d.i18n.en;
+        return langData.title.toLowerCase().includes(query) ||
+               langData.subtitle.toLowerCase().includes(query) ||
+               langData.desc.toLowerCase().includes(query);
+      });
+    }
+
     this.dishesList.innerHTML = '';
+
+    if (filtered.length === 0) {
+      this.dishesList.innerHTML = `
+        <div style="text-align:center; padding: 40px 0; color: var(--text-muted);">
+          <p style="font-size: 2rem;">🔍</p>
+          <p style="margin-top: 8px; font-weight: 600;">No dishes found matching "${query}"</p>
+        </div>
+      `;
+      return;
+    }
 
     filtered.forEach(dish => {
       const langData = dish.i18n[this.activeLang] || dish.i18n.en;
@@ -987,7 +1171,7 @@ class AppEngine {
         <!-- Dish Image Box (Tap for Photo Detail Popup) -->
         <div class="dish-img-box" data-action="photo" data-id="${dish.id}">
           <img src="${dish.image}" alt="${langData.title}" class="dish-img" loading="lazy">
-          <span class="tap-hint-badge">🔍</span>
+          <span class="tap-hint-badge">3D AR</span>
         </div>
 
         <!-- Dish Info (Tap Title for 3D View) -->
@@ -995,24 +1179,20 @@ class AppEngine {
           <button class="dish-name-btn" data-action="3d" data-id="${dish.id}">
             <h3 class="dish-title">
               ${langData.title}
-              <span class="ar-chip">3D AR</span>
+              <span class="ar-chip">3D View</span>
             </h3>
             <span class="dish-subtitle">${langData.subtitle}</span>
           </button>
           
           <div class="dish-price-row">
             <span class="dish-price">Rs. ${dish.price}</span>
-            <button class="card-add-btn" data-action="add" data-id="${dish.id}" aria-label="Add to cart">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="20" height="20">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
+            <button class="blinkit-add-btn" data-action="add" data-id="${dish.id}">
+              + ADD
             </button>
           </div>
         </div>
       `;
 
-      // Event listeners for dual actions
       card.querySelector('[data-action="photo"]').addEventListener('click', () => {
         this.openItemModal(dish);
       });
@@ -1056,23 +1236,32 @@ class AppEngine {
       this.modelProgressBar.style.display = 'flex';
     }
 
-    // Set 3D GLB src
-    this.dish3dViewer.setAttribute('src', dish.model);
+    // Set 3D GLB src & force poster dismiss
+    if (this.dish3dViewer) {
+      this.dish3dViewer.src = dish.model;
+      try {
+        if (typeof this.dish3dViewer.dismissPoster === 'function') {
+          this.dish3dViewer.dismissPoster();
+        }
+      } catch (e) {}
+    }
     
-    // 100% Fail-Safe Timer: Hide spinner after max 1.5s under all circumstances
+    // Fail-Safe Timer: Hide spinner after max 1.2s under all circumstances
     if (this.spinnerTimeout) clearTimeout(this.spinnerTimeout);
     this.spinnerTimeout = setTimeout(() => {
       if (typeof this.hideSpinner === 'function') {
         this.hideSpinner();
       }
-    }, 1500);
+    }, 1200);
 
     // Update bottom sheet content
     this.update3dSheetData(dish);
 
     // Reset sheet to collapsed
-    this.arBottomSheet.classList.remove('expanded');
-    this.arBottomSheet.classList.add('collapsed');
+    if (this.arBottomSheet) {
+      this.arBottomSheet.classList.remove('expanded');
+      this.arBottomSheet.classList.add('collapsed');
+    }
 
     // Switch view
     this.homePage.classList.remove('active');
