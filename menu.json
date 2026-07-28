@@ -334,33 +334,5 @@
     "protein": "0 g",
     "fat": "0 g",
     "dietary": "? Artisanal Spiced|? Gluten Free"
-  },
-  {
-    "id": "fish",
-    "category": "main ",
-    "price": 700,
-    "image": "",
-    "model": "",
-    "title_en": "",
-    "subtitle_en": "",
-    "desc_en": "",
-    "title_fr": "",
-    "subtitle_fr": "",
-    "desc_fr": "",
-    "title_de": "",
-    "subtitle_de": "",
-    "desc_de": "",
-    "title_zh": "",
-    "subtitle_zh": "",
-    "desc_zh": "",
-    "title_hi": "",
-    "subtitle_hi": "",
-    "desc_hi": "",
-    "calories": "",
-    "carbs": "",
-    "sugars": "",
-    "protein": "",
-    "fat": "",
-    "dietary": ""
   }
 ]
