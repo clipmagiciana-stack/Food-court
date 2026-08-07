@@ -2,6 +2,15 @@
    FOOD COURT - Interactive AR Web Menu Controller
    ========================================================================== */
 
+// --- DEFAULT LIVE GOOGLE SHEET CONFIGURATION ---
+// Paste your published Google Sheet URL below so every live website visitor automatically loads your live sheet:
+const DEFAULT_GOOGLE_SHEET_URL = '';
+
+// --- WHATSAPP CONFIGURATION ---
+// Set your restaurant's WhatsApp number here (international format, no +, no spaces):
+const WHATSAPP_PHONE_NUMBER = '23058473880'; // +230 5847 3880
+
+
 // --- TRANSLATION DICTIONARY (5 LANGUAGES) ---
 const TRANSLATIONS = {
   en: {
@@ -162,7 +171,7 @@ const TRANSLATIONS = {
 };
 
 // --- DISHES CATALOG DATA (MAURITIAN CUISINE) ---
-const DISHES_DATA = [
+const DEFAULT_DISHES_DATA = [
   // STARTERS (Rs. 350)
   {
     id: "gateau_piment",
@@ -635,7 +644,7 @@ const DISHES_DATA = [
       hi: {
         title: "रम अरेंज (Rhum Arrangé)",
         subtitle: "(मसालेदार मॉरीशस रम)",
-        desc: "स्थानीय मसालों, दालचीनी और वेनिला के साथ तैयार की गई पारंपरिक मॉरीशस रम।"
+        desc: "स्थानीय मसालों, दालचीनी और वेनिला के साथ तैयार की गई पारंपरिक मॉरीशस रम。"
       }
     },
     nutrition: { calories: "220 kcal", carbs: "12 g", sugars: "10 g", protein: "0 g", fat: "0 g" },
@@ -646,6 +655,348 @@ const DISHES_DATA = [
   }
 ];
 
+let DISHES_DATA = [...DEFAULT_DISHES_DATA];
+
+// --- GOOGLE SHEETS PARSER HELPERS ---
+function detectCSVDelimiter(firstLine) {
+  const commas = (firstLine.match(/,/g) || []).length;
+  const semicolons = (firstLine.match(/;/g) || []).length;
+  const tabs = (firstLine.match(/\t/g) || []).length;
+  
+  if (tabs > commas && tabs > semicolons) return '\t';
+  if (semicolons > commas) return ';';
+  return ',';
+}
+
+function parseCSVRow(rowText, delimiter = ',') {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < rowText.length; i++) {
+    const char = rowText[i];
+    if (char === '"') {
+      if (inQuotes && rowText[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === delimiter && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function parseDietaryTags(dietaryStr) {
+  if (!dietaryStr) return [];
+  if (typeof dietaryStr === 'object') return dietaryStr;
+  if (dietaryStr.trim().startsWith('[')) {
+    try { return JSON.parse(dietaryStr); } catch (e) {}
+  }
+  const parts = dietaryStr.split('|');
+  return parts.map(p => {
+    const trimmed = p.trim();
+    if (!trimmed) return null;
+    const spaceIdx = trimmed.indexOf(' ');
+    if (spaceIdx > 0) {
+      return { icon: trimmed.substring(0, spaceIdx), label: trimmed.substring(spaceIdx + 1) };
+    }
+    return { icon: '✨', label: trimmed };
+  }).filter(Boolean);
+}
+
+function cleanHeaderKey(key) {
+  return key ? key.toString().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+}
+
+function normalizeCategoryKey(rawCat) {
+  if (!rawCat) return 'starters';
+  const clean = rawCat.toString().toLowerCase().trim();
+  if (['starters', 'starter', 'appetizer', 'appetizers', 'entrées', 'entrees', 'entrée', 'entree'].includes(clean)) return 'starters';
+  if (['main', 'mains', 'main course', 'maincourse', 'main-course', 'plat principal', 'plats principaux'].includes(clean)) return 'main';
+  if (['desserts', 'dessert', 'sweets', 'sweet', 'gateau', 'gâteau'].includes(clean)) return 'desserts';
+  if (['drinks', 'drink', 'beverage', 'beverages', 'boisson', 'boissons'].includes(clean)) return 'drinks';
+  return clean.replace(/[^a-z0-9_]/g, '_');
+}
+
+function normalizeSheetDish(rowObj, index) {
+  if (!rowObj || typeof rowObj !== 'object') return null;
+
+  const map = {};
+  let hasAnyContent = false;
+
+  Object.keys(rowObj).forEach(k => {
+    const val = rowObj[k] !== undefined && rowObj[k] !== null ? String(rowObj[k]).trim() : '';
+    map[cleanHeaderKey(k)] = val;
+    if (val) hasAnyContent = true;
+  });
+
+  if (!hasAnyContent) return null;
+
+  const getVal = (...keys) => {
+    for (const k of keys) {
+      const cleaned = cleanHeaderKey(k);
+      if (map[cleaned] !== undefined && map[cleaned] !== '') {
+        return map[cleaned];
+      }
+    }
+    return '';
+  };
+
+  let titleEn = getVal('title_en', 'titleen', 'title', 'name', 'itemname', 'dishname', 'dish', 'item', 'food', 'product');
+  
+  if (!titleEn) {
+    for (const k of Object.keys(map)) {
+      if (map[k] && isNaN(map[k]) && !['category', 'cat', 'type', 'starters', 'main', 'desserts', 'drinks'].includes(map[k].toLowerCase())) {
+        titleEn = map[k];
+        break;
+      }
+    }
+  }
+
+  let id = getVal('id', 'item_id', 'itemid', 'key', 'code', 'no', 'number');
+  if (!id) {
+    id = titleEn ? titleEn.toLowerCase().replace(/[^a-z0-9_]/g, '_') : `dish_${index}`;
+  }
+
+  if (!titleEn) {
+    titleEn = `Item ${index}`;
+  }
+
+  return {
+    id: id,
+    category: normalizeCategoryKey(getVal('category', 'cat', 'type', 'section')),
+    price: parseFloat(getVal('price', 'cost', 'rs', 'amount', 'rate', 'price_rs')) || 0,
+    image: getVal('image', 'image_url', 'imageurl', 'photo', 'picture', 'img', 'thumb', 'thumbnail'),
+    model: getVal('model', 'model_url', 'modelurl', '3d', '3dmodel', 'glb', 'ar'),
+    i18n: {
+      en: {
+        title: titleEn,
+        subtitle: getVal('subtitle_en', 'subtitleen', 'subtitle', 'sub'),
+        desc: getVal('desc_en', 'descen', 'desc', 'description')
+      },
+      fr: {
+        title: getVal('title_fr', 'titlefr', 'frenchtitle') || titleEn,
+        subtitle: getVal('subtitle_fr', 'subtitlefr', 'frenchsubtitle') || getVal('subtitle_en', 'subtitleen', 'subtitle'),
+        desc: getVal('desc_fr', 'descfr', 'frenchdescription') || getVal('desc_en', 'descen', 'desc')
+      },
+      de: {
+        title: getVal('title_de', 'titlede', 'germantitle') || titleEn,
+        subtitle: getVal('subtitle_de', 'subtitlede', 'germansubtitle') || getVal('subtitle_en', 'subtitleen', 'subtitle'),
+        desc: getVal('desc_de', 'descde', 'germandescription') || getVal('desc_en', 'descen', 'desc')
+      },
+      zh: {
+        title: getVal('title_zh', 'titlezh', 'chinesetitle') || titleEn,
+        subtitle: getVal('subtitle_zh', 'subtitlezh', 'chinesesubtitle') || getVal('subtitle_en', 'subtitleen', 'subtitle'),
+        desc: getVal('desc_zh', 'desczh', 'chinesedescription') || getVal('desc_en', 'descen', 'desc')
+      },
+      hi: {
+        title: getVal('title_hi', 'titlehi', 'hindititle') || titleEn,
+        subtitle: getVal('subtitle_hi', 'subtitlehi', 'hindisubtitle') || getVal('subtitle_en', 'subtitleen', 'subtitle'),
+        desc: getVal('desc_hi', 'deschi', 'hindidescription') || getVal('desc_en', 'descen', 'desc')
+      }
+    },
+    nutrition: {
+      calories: getVal('calories', 'cal') || '0 kcal',
+      carbs: getVal('carbs', 'carbohydrates') || '0 g',
+      sugars: getVal('sugars', 'sugar') || '0 g',
+      protein: getVal('protein') || '0 g',
+      fat: getVal('fat', 'fats') || '0 g'
+    },
+    dietary: parseDietaryTags(getVal('dietary', 'tags', 'dietary_tags', 'dietarytags', 'info'))
+  };
+}
+
+function parseCSVToDishes(csvText) {
+  const cleanText = csvText.replace(/^\uFEFF/, '').trim();
+  const lines = cleanText.split(/\r?\n/).filter(line => line.trim() !== '');
+  if (lines.length < 2) return [];
+
+  const delimiter = detectCSVDelimiter(lines[0]);
+  
+  let headerIndex = 0;
+  let headers = parseCSVRow(lines[0], delimiter);
+
+  for (let l = 0; l < Math.min(5, lines.length); l++) {
+    const candidateHeaders = parseCSVRow(lines[l], delimiter);
+    const hasKnownKey = candidateHeaders.some(h => {
+      const k = cleanHeaderKey(h);
+      return ['id', 'title', 'name', 'price', 'category', 'item', 'dish', 'code'].some(known => k.includes(known));
+    });
+    if (hasKnownKey) {
+      headerIndex = l;
+      headers = candidateHeaders;
+      break;
+    }
+  }
+
+  const items = [];
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const values = parseCSVRow(lines[i], delimiter);
+    if (values.length < 1) continue;
+
+    const rowObj = {};
+    headers.forEach((h, idx) => {
+      rowObj[h.trim()] = values[idx] !== undefined ? values[idx] : '';
+    });
+
+    const dish = normalizeSheetDish(rowObj, items.length + 1);
+    if (dish) {
+      items.push(dish);
+    }
+  }
+  return items;
+}
+
+function extractGoogleSheetBasePath(url) {
+  if (!url) return null;
+  const trimmed = url.trim();
+  
+  // Case 1: Published URL starting with /d/e/2PACX-...
+  const pubMatch = trimmed.match(/docs\.google\.com\/spreadsheets\/d\/(e\/2PACX-[a-zA-Z0-9-_]+)/i);
+  if (pubMatch && pubMatch[1]) {
+    return pubMatch[1];
+  }
+
+  // Case 2: Regular sheet ID starting with /d/ID
+  const stdMatch = trimmed.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+  if (stdMatch && stdMatch[1] && stdMatch[1] !== 'e') {
+    return stdMatch[1];
+  }
+
+  return null;
+}
+
+function parseGVizResponse(gvizData) {
+  if (!gvizData || !gvizData.table) return [];
+  const cols = gvizData.table.cols || [];
+  const rows = gvizData.table.rows || [];
+  
+  if (rows.length === 0) return [];
+
+  let headers = cols.map((col) => (col.label && col.label.trim() ? col.label.trim() : ''));
+  const hasLabels = headers.some(h => h.length > 0);
+
+  let startRowIdx = 0;
+
+  if (!hasLabels && rows.length > 0) {
+    headers = cols.map((_, colIdx) => {
+      const cell = rows[0] && rows[0].c ? rows[0].c[colIdx] : null;
+      return (cell && cell.v !== null && cell.v !== undefined) ? String(cell.v).trim() : `col_${colIdx}`;
+    });
+    startRowIdx = 1;
+  }
+
+  const items = [];
+
+  for (let r = startRowIdx; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || !row.c) continue;
+    const rowObj = {};
+    headers.forEach((h, colIdx) => {
+      if (!h) return;
+      const cell = row.c[colIdx];
+      let val = '';
+      if (cell && cell.v !== null && cell.v !== undefined) {
+        val = String(cell.v).trim();
+        if (cell.f && typeof cell.v !== 'string') {
+          val = String(cell.f).trim();
+        }
+      }
+      rowObj[h] = val;
+    });
+
+    const dish = normalizeSheetDish(rowObj, items.length + 1);
+    if (dish) {
+      items.push(dish);
+    }
+  }
+
+  return items;
+}
+
+function fetchGoogleSheetJSONP(url) {
+  return new Promise((resolve, reject) => {
+    const basePath = extractGoogleSheetBasePath(url);
+    const callbackName = 'gviz_cb_' + Date.now();
+    let timeoutId;
+
+    window[callbackName] = (gvizData) => {
+      clearTimeout(timeoutId);
+      cleanup();
+      try {
+        const dishes = parseGVizResponse(gvizData);
+        if (dishes && dishes.length > 0) {
+          resolve(dishes);
+        } else {
+          reject(new Error("Connected to Google Sheet, but 0 valid dish rows were found. Make sure headers match google_sheet_template.csv."));
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    const script = document.createElement('script');
+    const cleanup = () => {
+      if (script.parentNode) script.parentNode.removeChild(script);
+      delete window[callbackName];
+    };
+
+    script.onerror = () => {
+      clearTimeout(timeoutId);
+      cleanup();
+      reject(new Error("Unable to fetch sheet data. Ensure Share setting is set to 'Anyone with the link can view'."));
+    };
+
+    timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error("Connection to Google Sheet timed out. Check internet or link permissions."));
+    }, 10000);
+
+    let scriptUrl = '';
+    const timeStamp = Date.now();
+    if (basePath) {
+      scriptUrl = `https://docs.google.com/spreadsheets/d/${basePath}/gviz/tq?tqx=responseHandler:${callbackName}&_nc=${timeStamp}`;
+    } else if (url.includes('script.google.com')) {
+      const sep = url.includes('?') ? '&' : '?';
+      scriptUrl = `${url}${sep}callback=${callbackName}&_nc=${timeStamp}`;
+    } else {
+      cleanup();
+      return reject(new Error("Unrecognized Google Sheet URL format."));
+    }
+
+    script.src = scriptUrl;
+    document.head.appendChild(script);
+  });
+}
+
+function normalizeGoogleSheetUrl(url) {
+  if (!url) return '';
+  let trimmed = url.trim();
+
+  if (trimmed.includes('/pub') || trimmed.includes('output=csv')) {
+    if (trimmed.includes('/pubhtml')) {
+      return trimmed.replace('/pubhtml', '/pub?output=csv');
+    }
+    return trimmed;
+  }
+
+  const basePath = extractGoogleSheetBasePath(trimmed);
+  if (basePath) {
+    if (basePath.startsWith('e/2PACX')) {
+      return `https://docs.google.com/spreadsheets/d/${basePath}/pub?output=csv`;
+    } else {
+      return `https://docs.google.com/spreadsheets/d/${basePath}/export?format=csv`;
+    }
+  }
+  return trimmed;
+}
+
 // --- APP STATE ENGINE ---
 class AppEngine {
   constructor() {
@@ -655,6 +1006,7 @@ class AppEngine {
     this.basket = []; // [{ dishId, quantity }]
     this.selectedDishForModal = null;
     this.selectedDishFor3D = null;
+    this.selectedTableNumber = null; // For table selection before WhatsApp order
     
     // Horizontal Category Swipe Tracking
     this.swipeStartX = 0;
@@ -674,6 +1026,7 @@ class AppEngine {
     this.bindSwipeNavigation();
     this.bindSleepWakeRecovery();
     this.initHistory();
+    this.initGoogleSheetBackend();
     this.render();
   }
 
@@ -733,9 +1086,11 @@ class AppEngine {
   }
 
   closeAllModalsAndViews() {
+    if (this.sheetModal) this.sheetModal.classList.add('hidden');
     if (this.langModal) this.langModal.classList.add('hidden');
     if (this.itemDetailModal) this.itemDetailModal.classList.add('hidden');
     if (this.basketModal) this.basketModal.classList.add('hidden');
+    if (this.tableSelectModal) this.tableSelectModal.classList.add('hidden');
     
     if (this.arViewPage && this.arViewPage.classList.contains('active')) {
       this.close3dViewInternal();
@@ -761,11 +1116,24 @@ class AppEngine {
     this.arViewPage = document.getElementById('arViewPage');
 
     // Modals
+    this.sheetModal = document.getElementById('sheetModal');
     this.langModal = document.getElementById('langModal');
     this.itemDetailModal = document.getElementById('itemDetailModal');
     this.basketModal = document.getElementById('basketModal');
+    this.tableSelectModal = document.getElementById('tableSelectModal');
+    this.tableNumberGrid = document.getElementById('tableNumberGrid');
+    this.selectedTableBar = document.getElementById('selectedTableBar');
+    this.selectedTableText = document.getElementById('selectedTableText');
+    this.confirmTableOrderBtn = document.getElementById('confirmTableOrderBtn');
+    this.closeTableModal = document.getElementById('closeTableModal');
 
     // Buttons
+    this.sheetConfigBtn = document.getElementById('sheetConfigBtn');
+    this.closeSheetModal = document.getElementById('closeSheetModal');
+    this.saveSheetUrlBtn = document.getElementById('saveSheetUrlBtn');
+    this.resetSheetUrlBtn = document.getElementById('resetSheetUrlBtn');
+    this.sheetStatusMsg = document.getElementById('sheetStatusMsg');
+    this.sheetUrlInput = document.getElementById('sheetUrlInput');
     this.langBtn = document.getElementById('langBtn');
     this.basketBtn = document.getElementById('basketBtn');
     this.closeLangModal = document.getElementById('closeLangModal');
@@ -831,6 +1199,10 @@ class AppEngine {
 
     // Touch Swipe Events for Mobile / Tablet
     this.dishesSection.addEventListener('touchstart', (e) => {
+      if (e.target.closest('button, a, input, [data-action], .dish-img-box, .dish-name-btn, .blinkit-add-btn')) {
+        this.isSwiping = false;
+        return;
+      }
       this.swipeStartX = e.touches[0].clientX;
       this.swipeStartY = e.touches[0].clientY;
       this.isSwiping = true;
@@ -851,6 +1223,10 @@ class AppEngine {
     // Mouse / Pointer Drag Support for Desktop Simulation
     let isMouseDown = false;
     this.dishesSection.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button, a, input, [data-action], .dish-img-box, .dish-name-btn, .blinkit-add-btn')) {
+        isMouseDown = false;
+        return;
+      }
       isMouseDown = true;
       this.swipeStartX = e.clientX;
       this.swipeStartY = e.clientY;
@@ -878,8 +1254,8 @@ class AppEngine {
     const deltaX = this.swipeStartX - this.swipeEndX;
     const deltaY = this.swipeStartY - this.swipeEndY;
 
-    // Ensure swipe was horizontal and not vertical scroll
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 45) {
+    // Ensure swipe was horizontal with threshold > 70px and not vertical scroll
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 70) {
       const currentIndex = this.categories.indexOf(this.activeCategory);
       if (deltaX > 0) {
         // Swiped Left -> Move to Next Category
@@ -901,19 +1277,115 @@ class AppEngine {
     this.swipeEndY = 0;
   }
 
+  updateCategories() {
+    const catSet = new Set();
+    const priorityOrder = ['starters', 'main', 'desserts', 'drinks'];
+
+    DISHES_DATA.forEach(d => {
+      const normalizedCat = normalizeCategoryKey(d.category);
+      d.category = normalizedCat;
+      catSet.add(normalizedCat);
+    });
+
+    const foundCategories = Array.from(catSet);
+    
+    if (foundCategories.length === 0) {
+      foundCategories.push('starters', 'main', 'desserts', 'drinks');
+    }
+
+    // Sort categories: known priority order first, then custom categories alphabetically
+    this.categories = foundCategories.sort((a, b) => {
+      const idxA = priorityOrder.indexOf(a);
+      const idxB = priorityOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    // Ensure active category is valid
+    if (!this.categories.includes(this.activeCategory)) {
+      this.activeCategory = this.categories[0];
+    }
+
+    this.renderCategoryTabs();
+  }
+
+  getCategoryInfo(catKey) {
+    const dict = TRANSLATIONS[this.activeLang] || TRANSLATIONS.en;
+    const translationKey = `cat_${catKey}`;
+
+    const emojiMap = {
+      starters: "🧆",
+      starter: "🧆",
+      appetizers: "🧆",
+      main: "🍲",
+      mains: "🍲",
+      "main course": "🍲",
+      desserts: "🍰",
+      dessert: "🍰",
+      sweets: "🍰",
+      drinks: "🍹",
+      drink: "🍹",
+      beverages: "🍹",
+      breakfast: "🥐",
+      seafood: "🦐",
+      specials: "⭐",
+      "chef specials": "⭐",
+      salads: "🥗",
+      soups: "🥣",
+      sides: "🍟"
+    };
+
+    const emoji = emojiMap[catKey] || "🍽️";
+    let label = dict[translationKey];
+
+    if (!label) {
+      label = catKey
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    return { emoji, label };
+  }
+
+  renderCategoryTabs() {
+    if (!this.categoriesNav) return;
+    this.categoriesNav.innerHTML = '';
+
+    this.categories.forEach(cat => {
+      const { emoji, label } = this.getCategoryInfo(cat);
+      const tabBtn = document.createElement('button');
+      tabBtn.className = `category-tab ${cat === this.activeCategory ? 'active' : ''}`;
+      tabBtn.setAttribute('data-category', cat);
+      tabBtn.innerHTML = `
+        <span class="cat-emoji">${emoji}</span>
+        <span>${label}</span>
+      `;
+
+      tabBtn.addEventListener('click', () => {
+        this.switchCategory(cat, 'right');
+      });
+
+      this.categoriesNav.appendChild(tabBtn);
+    });
+  }
+
   switchCategory(categoryName, animateDirection = 'right') {
     this.activeCategory = categoryName;
 
     // Update active tab styling & scroll tab into view
-    document.querySelectorAll('.category-tab').forEach(tab => {
-      const cat = tab.getAttribute('data-category');
-      if (cat === categoryName) {
-        tab.classList.add('active');
-        tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-      } else {
-        tab.classList.remove('active');
-      }
-    });
+    if (this.categoriesNav) {
+      this.categoriesNav.querySelectorAll('.category-tab').forEach(tab => {
+        const cat = tab.getAttribute('data-category');
+        if (cat === categoryName) {
+          tab.classList.add('active');
+          tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        } else {
+          tab.classList.remove('active');
+        }
+      });
+    }
 
     // Apply slide animation class
     if (this.dishesList) {
@@ -964,11 +1436,59 @@ class AppEngine {
   }
 
   bindEvents() {
+    // Google Sheet Modal Controls
+    if (this.sheetConfigBtn) {
+      this.sheetConfigBtn.addEventListener('click', () => {
+        const savedUrl = localStorage.getItem('ar_menu_sheet_url') || '';
+        if (this.sheetUrlInput) this.sheetUrlInput.value = savedUrl;
+        if (this.sheetStatusMsg) this.sheetStatusMsg.textContent = savedUrl ? "Connected to Google Sheet" : "";
+        this.pushState('sheetConfig');
+        this.showModal(this.sheetModal);
+      });
+    }
+
+    if (this.closeSheetModal) {
+      this.closeSheetModal.addEventListener('click', () => this.popOrCloseModal());
+    }
+
+    if (this.saveSheetUrlBtn) {
+      this.saveSheetUrlBtn.addEventListener('click', () => {
+        const url = this.sheetUrlInput.value.trim();
+        if (!url) {
+          localStorage.removeItem('ar_menu_sheet_url');
+          DISHES_DATA = [...DEFAULT_DISHES_DATA];
+          this.updateCategories();
+          this.renderDishes();
+          this.showToast("Reset to default dishes!", "🔄");
+          this.popOrCloseModal();
+          return;
+        }
+        this.fetchAndApplySheet(url, true);
+      });
+    }
+
+    if (this.resetSheetUrlBtn) {
+      this.resetSheetUrlBtn.addEventListener('click', () => {
+        localStorage.removeItem('ar_menu_sheet_url');
+        if (this.sheetUrlInput) this.sheetUrlInput.value = '';
+        DISHES_DATA = [...DEFAULT_DISHES_DATA];
+        this.updateCategories();
+        this.renderDishes();
+        this.showToast("Reset to default dishes", "ℹ️");
+        if (this.sheetStatusMsg) {
+          this.sheetStatusMsg.style.color = 'var(--text-muted)';
+          this.sheetStatusMsg.textContent = "Reset to default data.";
+        }
+      });
+    }
+
     // Language Switcher Toggle
-    this.langBtn.addEventListener('click', () => {
-      this.pushState('language');
-      this.showModal(this.langModal);
-    });
+    if (this.langBtn) {
+      this.langBtn.addEventListener('click', () => {
+        this.pushState('language');
+        this.showModal(this.langModal);
+      });
+    }
     this.closeLangModal.addEventListener('click', () => this.popOrCloseModal());
 
     document.querySelectorAll('.lang-option-btn').forEach(btn => {
@@ -976,14 +1496,6 @@ class AppEngine {
         const lang = e.currentTarget.getAttribute('data-lang');
         this.setLanguage(lang);
         this.popOrCloseModal();
-      });
-    });
-
-    // Category Tabs Switching
-    document.querySelectorAll('.category-tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        const cat = e.currentTarget.getAttribute('data-category');
-        this.switchCategory(cat, 'right');
       });
     });
 
@@ -1023,6 +1535,28 @@ class AppEngine {
       this.closeBasketDoneBtn.addEventListener('click', () => this.popOrCloseModal());
     }
     this.clearBasketBtn.addEventListener('click', () => this.clearBasket());
+
+    // WhatsApp Order button in Basket
+    if (document.getElementById('placeOrderWhatsappBtn')) {
+      document.getElementById('placeOrderWhatsappBtn').addEventListener('click', () => {
+        this.openTableSelectModal();
+      });
+    }
+
+    // Table Selection Modal
+    if (this.closeTableModal) {
+      this.closeTableModal.addEventListener('click', () => this.closeTableSelectModal());
+    }
+    if (this.tableSelectModal) {
+      this.tableSelectModal.addEventListener('click', (e) => {
+        if (e.target === this.tableSelectModal) this.closeTableSelectModal();
+      });
+    }
+    if (this.confirmTableOrderBtn) {
+      this.confirmTableOrderBtn.addEventListener('click', () => {
+        this.sendWhatsAppOrder();
+      });
+    }
 
     // 3D View Screen Controls
     this.closeArBtn.addEventListener('click', () => this.popOrCloseModal());
@@ -1094,11 +1628,115 @@ class AppEngine {
     });
 
     // Backdrop click handlers to close modals
-    [this.langModal, this.itemDetailModal, this.basketModal].forEach(modal => {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) this.popOrCloseModal();
-      });
+    [this.sheetModal, this.langModal, this.itemDetailModal, this.basketModal].forEach(modal => {
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) this.popOrCloseModal();
+        });
+      }
     });
+  }
+
+  // --- GOOGLE SHEET INTEGRATION ENGINE ---
+  initGoogleSheetBackend() {
+    let activeUrl = localStorage.getItem('ar_menu_sheet_url');
+    if (!activeUrl && typeof DEFAULT_GOOGLE_SHEET_URL !== 'undefined' && DEFAULT_GOOGLE_SHEET_URL) {
+      activeUrl = DEFAULT_GOOGLE_SHEET_URL;
+    }
+
+    if (activeUrl) {
+      this.fetchAndApplySheet(activeUrl, false);
+    }
+
+    // Auto Live-Sync: re-sync every 15 seconds to fetch live price/dish edits from Google Sheets automatically
+    if (this.autoSyncTimer) clearInterval(this.autoSyncTimer);
+    this.autoSyncTimer = setInterval(() => {
+      let currentUrl = localStorage.getItem('ar_menu_sheet_url');
+      if (!currentUrl && typeof DEFAULT_GOOGLE_SHEET_URL !== 'undefined' && DEFAULT_GOOGLE_SHEET_URL) {
+        currentUrl = DEFAULT_GOOGLE_SHEET_URL;
+      }
+
+      if (currentUrl && document.visibilityState === 'visible') {
+        this.fetchAndApplySheet(currentUrl, false);
+      }
+    }, 15000);
+  }
+
+  async fetchAndApplySheet(rawUrl, isManualTrigger = false) {
+    if (this.sheetStatusMsg && isManualTrigger) {
+      this.sheetStatusMsg.style.color = 'var(--text-muted)';
+      this.sheetStatusMsg.textContent = "⏳ Syncing menu data from Google Sheet...";
+    }
+
+    let parsedDishes = [];
+    let lastError = null;
+
+    // Strategy 1: Try JSONP script loader first (works across file:// local protocol and http/https without CORS blockage)
+    try {
+      parsedDishes = await fetchGoogleSheetJSONP(rawUrl);
+    } catch (jsonpErr) {
+      console.warn("JSONP attempt returned error, trying fetch() fallback...", jsonpErr);
+      lastError = jsonpErr;
+    }
+
+    // Strategy 2: If JSONP didn't return dishes, try standard fetch() (for Apps Script or CORS-enabled CSV)
+    if (!parsedDishes || parsedDishes.length === 0) {
+      try {
+        const fetchUrl = normalizeGoogleSheetUrl(rawUrl);
+        const sep = fetchUrl.includes('?') ? '&' : '?';
+        const cacheBustedUrl = `${fetchUrl}${sep}_nc=${Date.now()}`;
+        const response = await fetch(cacheBustedUrl);
+        if (response.ok) {
+          const text = await response.text();
+          const trimmedText = text.trim();
+
+          if (!trimmedText.toLowerCase().startsWith('<!doctype') && !trimmedText.toLowerCase().startsWith('<html')) {
+            if (trimmedText.startsWith('[') || trimmedText.startsWith('{')) {
+              const data = JSON.parse(trimmedText);
+              let rawItems = [];
+              if (Array.isArray(data)) {
+                rawItems = data;
+              } else if (data && typeof data === 'object') {
+                rawItems = data.dishes || data.items || data.data || data.result || data.rows || data.values || data.content || [];
+              }
+              parsedDishes = rawItems.map((item, idx) => normalizeSheetDish(item, idx + 1)).filter(Boolean);
+            } else {
+              parsedDishes = parseCSVToDishes(trimmedText);
+            }
+          }
+        }
+      } catch (fetchErr) {
+        console.error("fetch() fallback failed:", fetchErr);
+        if (!lastError) lastError = fetchErr;
+      }
+    }
+
+    if (parsedDishes && parsedDishes.length > 0) {
+      DISHES_DATA = parsedDishes;
+      localStorage.setItem('ar_menu_sheet_url', rawUrl);
+      this.updateCategories();
+      this.renderDishes();
+      
+      if (this.sheetStatusMsg) {
+        this.sheetStatusMsg.style.color = '#10b981';
+        this.sheetStatusMsg.textContent = `✅ Successfully synced ${parsedDishes.length} dishes from Google Sheet!`;
+      }
+
+      if (isManualTrigger) {
+        this.showToast(`Synced ${parsedDishes.length} dishes!`, "✅");
+        setTimeout(() => this.popOrCloseModal(), 1000);
+      }
+    } else {
+      let errText = lastError ? lastError.message : "Unable to load Google Sheet.";
+
+      if (this.sheetStatusMsg) {
+        this.sheetStatusMsg.style.color = '#ef4444';
+        this.sheetStatusMsg.textContent = `❌ ${errText}`;
+      }
+      if (isManualTrigger) {
+        this.showToast("Failed to sync sheet data", "❌");
+      }
+    }
   }
 
   setLanguage(lang) {
@@ -1114,6 +1752,7 @@ class AppEngine {
     });
 
     this.translateUI();
+    this.updateCategories();
     this.renderDishes();
     if (this.selectedDishFor3D) {
       this.update3dSheetData(this.selectedDishFor3D);
@@ -1133,13 +1772,15 @@ class AppEngine {
 
   render() {
     this.translateUI();
+    this.updateCategories();
     this.renderDishes();
     this.updateBasketUI();
   }
 
   renderDishes() {
     const query = (this.searchInput ? this.searchInput.value : '').toLowerCase().trim();
-    let filtered = DISHES_DATA.filter(d => d.category === this.activeCategory);
+    const activeCatNorm = normalizeCategoryKey(this.activeCategory);
+    let filtered = DISHES_DATA.filter(d => normalizeCategoryKey(d.category) === activeCatNorm);
 
     if (query) {
       filtered = DISHES_DATA.filter(d => {
@@ -1170,7 +1811,7 @@ class AppEngine {
       card.innerHTML = `
         <!-- Dish Image Box (Tap for Photo Detail Popup) -->
         <div class="dish-img-box" data-action="photo" data-id="${dish.id}">
-          <img src="${dish.image}" alt="${langData.title}" class="dish-img" loading="lazy">
+          <img src="${dish.image || 'Meshy_AI_bol-renverse-front-clean.png'}" alt="${langData.title}" class="dish-img" loading="lazy" onerror="this.onerror=null; this.src='Meshy_AI_bol-renverse-front-clean.png';">
           <span class="tap-hint-badge">3D AR</span>
         </div>
 
@@ -1425,6 +2066,127 @@ class AppEngine {
     setTimeout(() => {
       this.toast.classList.add('hidden');
     }, 2800);
+  }
+
+  // --- TABLE SELECTION & WHATSAPP ORDER ---
+
+  openTableSelectModal() {
+    if (this.basket.length === 0) {
+      this.showToast('Your basket is empty!', '🛒');
+      return;
+    }
+    this.selectedTableNumber = null;
+    this.buildTableGrid();
+    this.updateTableSelectionUI();
+    if (this.tableSelectModal) {
+      this.tableSelectModal.classList.remove('hidden');
+    }
+  }
+
+  closeTableSelectModal() {
+    if (this.tableSelectModal) {
+      this.tableSelectModal.classList.add('hidden');
+    }
+    this.selectedTableNumber = null;
+  }
+
+  buildTableGrid(totalTables = 20) {
+    if (!this.tableNumberGrid) return;
+    this.tableNumberGrid.innerHTML = '';
+
+    for (let i = 1; i <= totalTables; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'table-num-btn';
+      btn.textContent = i;
+      btn.setAttribute('data-table', i);
+      btn.setAttribute('id', `tableBtn${i}`);
+      btn.addEventListener('click', () => this.selectTable(i));
+      this.tableNumberGrid.appendChild(btn);
+    }
+  }
+
+  selectTable(tableNum) {
+    this.selectedTableNumber = tableNum;
+
+    // Update selected button styling
+    if (this.tableNumberGrid) {
+      this.tableNumberGrid.querySelectorAll('.table-num-btn').forEach(btn => {
+        btn.classList.toggle('selected', parseInt(btn.getAttribute('data-table')) === tableNum);
+      });
+    }
+
+    this.updateTableSelectionUI();
+  }
+
+  updateTableSelectionUI() {
+    const hasSelection = this.selectedTableNumber !== null;
+
+    if (this.selectedTableText) {
+      this.selectedTableText.textContent = hasSelection
+        ? `🪑 Table ${this.selectedTableNumber} selected — ready to send!`
+        : 'No table selected';
+    }
+
+    if (this.selectedTableBar) {
+      this.selectedTableBar.classList.toggle('has-selection', hasSelection);
+    }
+
+    if (this.confirmTableOrderBtn) {
+      this.confirmTableOrderBtn.disabled = !hasSelection;
+    }
+  }
+
+  sendWhatsAppOrder() {
+    if (!this.selectedTableNumber || this.basket.length === 0) return;
+
+    const dict = TRANSLATIONS[this.activeLang] || TRANSLATIONS.en;
+
+    // Build order lines
+    const lines = this.basket.map(item => {
+      const dish = DISHES_DATA.find(d => d.id === item.dishId);
+      if (!dish) return null;
+      const langData = dish.i18n[this.activeLang] || dish.i18n.en;
+      const itemTotal = dish.price * item.quantity;
+      return `• ${langData.title} x${item.quantity}  —  Rs. ${itemTotal}`;
+    }).filter(Boolean);
+
+    const subtotal = this.basket.reduce((sum, item) => {
+      const dish = DISHES_DATA.find(d => d.id === item.dishId);
+      return sum + (dish ? dish.price * item.quantity : 0);
+    }, 0);
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+    const message = [
+      `🍽️ *NEW TABLE ORDER — FOOD COURT*`,
+      ``,
+      `🪑 *Table Number: ${this.selectedTableNumber}*`,
+      `🕐 Time: ${timeStr}`,
+      ``,
+      `*Order Summary:*`,
+      ...lines,
+      ``,
+      `━━━━━━━━━━━━━━━`,
+      `💰 *Total: Rs. ${subtotal}*`,
+      `━━━━━━━━━━━━━━━`,
+      ``,
+      `Please prepare this order for Table ${this.selectedTableNumber}. Thank you! 🙏`
+    ].join('\n');
+
+    const encoded = encodeURIComponent(message);
+    const phone = WHATSAPP_PHONE_NUMBER.replace(/[^0-9]/g, '');
+    const waUrl = phone
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encoded}`
+      : `https://wa.me/?text=${encoded}`;
+
+    // Open WhatsApp
+    window.open(waUrl, '_blank');
+
+    // Close modals, show toast
+    this.closeTableSelectModal();
+    this.closeAllModalsAndViews();
+    this.showToast(TRANSLATIONS[this.activeLang].order_success || '🎉 Order sent via WhatsApp!', '✅');
   }
 }
 
