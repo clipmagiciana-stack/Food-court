@@ -998,6 +998,23 @@ model-viewer {
   justify-content: space-between;
 }
 
+.clickable-sheet-header {
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 8px;
+  transition: background-color var(--transition-fast);
+}
+
+.clickable-sheet-header:hover {
+  background-color: rgba(15, 76, 92, 0.03);
+}
+
+.nutri-toggle-btn:hover {
+  background: var(--primary) !important;
+  color: white !important;
+}
+
 .sheet-title-box {
   display: flex;
   flex-direction: column;
